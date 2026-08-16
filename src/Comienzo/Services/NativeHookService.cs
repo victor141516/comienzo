@@ -198,11 +198,25 @@ internal sealed class NativeHookService : IDisposable
 
     private delegate IntPtr HookProc(int code, IntPtr message, IntPtr data);
 
+    internal static int InputStructureSize => Marshal.SizeOf<INPUT>();
+
     [StructLayout(LayoutKind.Sequential)] private struct Point { public int x; public int y; }
     [StructLayout(LayoutKind.Sequential)] private struct MsLlHookStruct { public Point pt; public uint mouseData, flags, time; public IntPtr dwExtraInfo; }
     [StructLayout(LayoutKind.Sequential)] private struct KbdLlHookStruct { public int vkCode, scanCode; public uint flags, time; public IntPtr dwExtraInfo; }
     [StructLayout(LayoutKind.Sequential)] private struct INPUT { public uint type; public InputUnion union; }
-    [StructLayout(LayoutKind.Explicit)] private struct InputUnion { [FieldOffset(0)] public KEYBDINPUT keyboard; }
+    [StructLayout(LayoutKind.Explicit)]
+    private struct InputUnion
+    {
+        [FieldOffset(0)] public MOUSEINPUT mouse;
+        [FieldOffset(0)] public KEYBDINPUT keyboard;
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MOUSEINPUT
+    {
+        public int dx, dy;
+        public uint mouseData, dwFlags, time;
+        public IntPtr dwExtraInfo;
+    }
     [StructLayout(LayoutKind.Sequential)] private struct KEYBDINPUT { public ushort wVk, wScan; public uint dwFlags, time; public IntPtr dwExtraInfo; }
 
     [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SetWindowsHookEx(int idHook, HookProc callback, IntPtr module, uint threadId);

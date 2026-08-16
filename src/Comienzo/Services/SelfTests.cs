@@ -191,6 +191,11 @@ internal static class SelfTests
 
     private static void AssertShortcutReplayEvents()
     {
+        int expectedInputSize = IntPtr.Size == 8 ? 40 : 28;
+        if (NativeHookService.InputStructureSize != expectedInputSize)
+            throw new Exception($"Native INPUT size was {NativeHookService.InputStructureSize}; " +
+                $"expected {expectedInputSize}");
+
         KeyboardReplayEvent[] letterReplay = NativeHookService.CreateShortcutReplay(
             WindowsKeyStateMachine.LeftWindowsKey,
             [
