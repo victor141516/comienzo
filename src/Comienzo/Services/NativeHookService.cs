@@ -123,24 +123,32 @@ internal sealed class NativeHookService : IDisposable
 
     private static void ReplayWindowsShortcut(ushort windowsKey, KbdLlHookStruct shortcutKey)
     {
-        uint shortcutFlags = (shortcutKey.flags & LlkhfExtended) != 0 ? KeyEventFExtendedKey : 0;
-        INPUT[] replay =
-        {
-            CreateKeyboardInput(windowsKey, 0),
-            CreateKeyboardInput((ushort)shortcutKey.vkCode, shortcutFlags)
-        };
-        _ = SendInput((uint)replay.Length, replay, Marshal.SizeOf<INPUT>());
+        KeyboardReplayEvent[] sequence = CreateShortcutReplay(windowsKey, shortcutKey.vkCode,
+            shortcutKey.scanCode, (shortcutKey.flags & LlkhfExtended) != 0);
+        INPUT[] replay = sequence.Select(CreateKeyboardInput).ToArray();
+        uint sent = SendInput((uint)replay.Length, replay, Marshal.SizeOf<INPUT>());
+        if (sent != replay.Length)
+            Debug.WriteLine($"Shortcut replay inserted {sent} of {replay.Length} keyboard events. " +
+                $"Win32 error: {Marshal.GetLastWin32Error()}.");
     }
 
-    private static INPUT CreateKeyboardInput(ushort key, uint flags) => new()
+    internal static KeyboardReplayEvent[] CreateShortcutReplay(ushort windowsKey, int shortcutKey,
+        int shortcutScanCode, bool shortcutIsExtended) =>
+    [
+        new KeyboardReplayEvent(windowsKey, 0, true),
+        new KeyboardReplayEvent((ushort)shortcutKey, (ushort)shortcutScanCode, shortcutIsExtended)
+    ];
+
+    private static INPUT CreateKeyboardInput(KeyboardReplayEvent key) => new()
     {
         type = 1,
         union = new InputUnion
         {
             keyboard = new KEYBDINPUT
             {
-                wVk = key,
-                dwFlags = flags,
+                wVk = key.VirtualKey,
+                wScan = key.ScanCode,
+                dwFlags = key.IsExtended ? KeyEventFExtendedKey : 0,
                 dwExtraInfo = InjectedMarker
             }
         }
@@ -170,3 +178,5 @@ internal sealed class NativeHookService : IDisposable
     [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, INPUT[] inputs, int size);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandle(string? moduleName);
 }
+
+internal readonly record struct KeyboardReplayEvent(ushort VirtualKey, ushort ScanCode, bool IsExtended);

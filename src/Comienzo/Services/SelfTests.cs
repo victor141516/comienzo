@@ -111,6 +111,8 @@ internal static class SelfTests
 
     private static void AssertWindowsKeyBehavior()
     {
+        AssertShortcutReplayEvents();
+
         var shortcut = new WindowsKeyStateMachine();
         AssertAction(shortcut.Process(WindowsKeyStateMachine.LeftWindowsKey, true, false, false, false, false),
             WindowsKeyAction.Suppress,
@@ -167,6 +169,22 @@ internal static class SelfTests
             false, false, false), WindowsKeyAction.Suppress, "right Win down");
         AssertAction(rightBare.Process(WindowsKeyStateMachine.RightWindowsKey, false, true,
             false, false, false), WindowsKeyAction.ToggleComienzo, "right Win release");
+    }
+
+    private static void AssertShortcutReplayEvents()
+    {
+        KeyboardReplayEvent[] letterReplay = NativeHookService.CreateShortcutReplay(
+            WindowsKeyStateMachine.LeftWindowsKey, 'R', 0x13, false);
+        if (letterReplay.Length != 2 ||
+            letterReplay[0] != new KeyboardReplayEvent(WindowsKeyStateMachine.LeftWindowsKey, 0, true) ||
+            letterReplay[1] != new KeyboardReplayEvent('R', 0x13, false))
+            throw new Exception("Win+R replay did not preserve the required keyboard metadata");
+
+        KeyboardReplayEvent[] extendedReplay = NativeHookService.CreateShortcutReplay(
+            WindowsKeyStateMachine.RightWindowsKey, 0x27, 0x4D, true);
+        if (extendedReplay[0] != new KeyboardReplayEvent(WindowsKeyStateMachine.RightWindowsKey, 0, true) ||
+            extendedReplay[1] != new KeyboardReplayEvent(0x27, 0x4D, true))
+            throw new Exception("Extended Windows shortcut replay did not preserve key metadata");
     }
 
     private static void AssertWindowPositioning()
