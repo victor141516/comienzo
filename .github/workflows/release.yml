@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+
+jobs:
+  release:
+    name: Build and release Windows binaries
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out tag
+        uses: actions/checkout@v6
+
+      - name: Install .NET 10 SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish x64 and ARM64
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          $checksumLines = [System.Collections.Generic.List[string]]::new()
+
+          foreach ($rid in @("win-x64", "win-arm64")) {
+            $publishDirectory = Join-Path "dist" $rid
+            dotnet publish src/Comienzo/Comienzo.csproj `
+              --configuration Release `
+              --runtime $rid `
+              --self-contained true `
+              --output $publishDirectory `
+              -p:PublishSingleFile=true `
+              -p:IncludeNativeLibrariesForSelfExtract=true `
+              -p:EnableCompressionInSingleFile=true `
+              -p:DebugType=None `
+              -p:DebugSymbols=false
+            if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed for $rid" }
+
+            $executable = Join-Path $publishDirectory "Comienzo.exe"
+            if (-not (Test-Path -LiteralPath $executable)) {
+              throw "Missing published executable for $rid"
+            }
+
+            $archiveName = "Comienzo-$env:GITHUB_REF_NAME-$rid.zip"
+            $archivePath = Join-Path "release" $archiveName
+            Compress-Archive -LiteralPath $executable -DestinationPath $archivePath -CompressionLevel Optimal
+            $hash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+            $checksumLines.Add("$hash  $archiveName")
+          }
+
+          $checksumLines | Set-Content -LiteralPath release/SHA256SUMS.txt -Encoding utf8
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $assets = Get-ChildItem -LiteralPath release -File | Select-Object -ExpandProperty FullName
+          gh release create $env:GITHUB_REF_NAME @assets `
+            --verify-tag `
+            --generate-notes `
+            --title "Comienzo $env:GITHUB_REF_NAME"

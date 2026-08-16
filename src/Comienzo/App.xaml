@@ -1,0 +1,12 @@
+<Application x:Class="Comienzo.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <SolidColorBrush x:Key="TextPrimary" Color="#F7F7F7" />
+        <SolidColorBrush x:Key="TextSecondary" Color="#B8FFFFFF" />
+        <SolidColorBrush x:Key="Surface" Color="#E9202020" />
+        <SolidColorBrush x:Key="SurfaceRaised" Color="#20FFFFFF" />
+        <SolidColorBrush x:Key="Accent" Color="#60CDFF" />
+    </Application.Resources>
+</Application>
