@@ -58,7 +58,7 @@ internal sealed class NativeHookService : IDisposable
         if (_keyboardHook == IntPtr.Zero || _mouseHook == IntPtr.Zero)
         {
             Dispose();
-            throw new Win32Exception(Marshal.GetLastWin32Error(), "No se pudieron instalar los hooks de Inicio.");
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "Could not install the Start hooks.");
         }
     }
 

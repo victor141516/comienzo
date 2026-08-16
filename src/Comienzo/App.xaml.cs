@@ -143,7 +143,7 @@ public partial class App : System.Windows.Application
             WriteIntegrationFailure("dispatcher-unhandled.txt", eventArgs.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) =>
             WriteIntegrationFailure("appdomain-unhandled.txt", eventArgs.ExceptionObject as Exception ??
-                new Exception(eventArgs.ExceptionObject?.ToString() ?? "Excepción no identificada"));
+                new Exception(eventArgs.ExceptionObject?.ToString() ?? "Unknown exception"));
         TaskScheduler.UnobservedTaskException += (_, eventArgs) =>
             WriteIntegrationFailure("task-unobserved.txt", eventArgs.Exception);
     }

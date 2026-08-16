@@ -9,9 +9,8 @@ internal static class AppDiscovery
 {
     private static readonly string[] RejectedWords =
     {
-        "uninstall", "uninstaller", "desinstalar", "desinstalador", "readme", "léeme", "leeme",
-        "help", "ayuda", "manual", "documentation", "documentación", "license", "licencia",
-        "website", "sitio web", "support", "soporte", "repair", "reparar", "release notes",
+        "uninstall", "uninstaller", "readme", "help", "manual", "documentation", "license",
+        "website", "support", "repair", "release notes",
         "changelog", "update checker", "updater", "reset", "preferences and cache", "what's new",
         "console rar manual", "administrative tools", "sample", "samples"
     };
@@ -68,8 +67,8 @@ internal static class AppDiscovery
                 {
                     Name = name,
                     Subtitle = path.EndsWith(".url", StringComparison.OrdinalIgnoreCase)
-                        ? "Aplicación o juego"
-                        : "Aplicación",
+                        ? "Application or game"
+                        : "Application",
                     Kind = ItemKind.Application,
                     Target = path,
                     IconSource = icon.Source ?? "",
@@ -113,7 +112,7 @@ internal static class AppDiscovery
                     output.Add((new CatalogItem
                     {
                         Name = name,
-                        Subtitle = "Aplicación instalada",
+                        Subtitle = "Installed application",
                         Kind = ItemKind.Application,
                         LaunchKind = LaunchKind.ExplorerShellApp,
                         Target = identifier,
@@ -169,7 +168,7 @@ internal static class AppDiscovery
                     output.Add((new CatalogItem
                     {
                         Name = name,
-                        Subtitle = "Aplicación de escritorio",
+                        Subtitle = "Desktop application",
                         Kind = ItemKind.Application,
                         Target = executable,
                         WorkingDirectory = Path.GetDirectoryName(executable) ?? "",
@@ -211,7 +210,7 @@ internal static class AppDiscovery
     private static string NormalizeName(string value)
     {
         string normalized = SearchEngine.Normalize(value);
-        foreach (string suffix in new[] { " app", " application", " aplicación", " x64", " x86" })
+        foreach (string suffix in new[] { " app", " application", " x64", " x86" })
             if (normalized.EndsWith(suffix, StringComparison.Ordinal))
                 normalized = normalized[..^suffix.Length].TrimEnd();
         return normalized;

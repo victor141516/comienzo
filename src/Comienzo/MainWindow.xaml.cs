@@ -107,7 +107,7 @@ public partial class MainWindow : Window
     {
         UpdateLayout();
         ScrollViewer? viewer = FindVisualChild<ScrollViewer>(ResultsList);
-        if (viewer is null) throw new InvalidOperationException("No se encontró el ScrollViewer de resultados.");
+        if (viewer is null) throw new InvalidOperationException("The results ScrollViewer was not found.");
 
         long missesBefore = IconService.CacheMissCount;
         var timer = Stopwatch.StartNew();
@@ -330,7 +330,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            System.Windows.MessageBox.Show(this, $"No se pudo abrir {item.Name}.\n\n{exception.Message}",
+            System.Windows.MessageBox.Show(this, $"Could not open {item.Name}.\n\n{exception.Message}",
                 "Comienzo", MessageBoxButton.OK, MessageBoxImage.Warning);
             FocusWindowAndSearch();
         }

@@ -56,11 +56,13 @@ Do not run UI automation or input-injection integration tests on the user's acti
 - Release native handles, icons, COM objects, hooks, timers, and tray resources deterministically.
 - Preserve Windows 10 compatibility when using Windows 11 DWM attributes: optional APIs must fail safely.
 - Do not add production dependencies unless they materially reduce complexity or risk.
-- Keep user-facing strings in Spanish unless a task explicitly changes the product language.
+- All repository-authored text must be written in English, including documentation, metadata, diagnostics, tests, and developer-facing messages.
 
 ## UI changes
 
 - Match the Windows 11 visual language while keeping the app lightweight.
+- All user-facing interface text must always be written in English. This includes labels, placeholders, tooltips, tray commands, dialogs, notifications, errors, settings entries, accessibility text, and search aliases.
+- Do not introduce localized or non-English UI strings unless the project first adopts a deliberate localization system and this file is updated accordingly.
 - Verify focus, keyboard navigation, high-DPI positioning, multi-monitor bounds, scrolling, and first-frame rendering.
 - Avoid layout changes that reintroduce the Enter glyph, remove the screen-edge gap, or make the window wider without a demonstrated need.
 - For visual changes, inspect an actual rendered window or snapshot in addition to checking XAML.

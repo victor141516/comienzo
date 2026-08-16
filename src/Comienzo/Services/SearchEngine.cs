@@ -18,7 +18,7 @@ internal sealed class SearchEngine
 
         if (calculator is not null)
         {
-            SetSection(new[] { calculator }, 0, "Calculadora");
+            SetSection(new[] { calculator }, 0, "Calculator");
             return new[] { calculator };
         }
 
@@ -38,12 +38,12 @@ internal sealed class SearchEngine
             int initialSection = 0;
             if (frequent.Count > 0)
             {
-                SetSection(frequent, initialSection++, "Más usados");
+                SetSection(frequent, initialSection++, "Most used");
                 initial.AddRange(frequent);
             }
-            SetSection(applications, initialSection++, "Aplicaciones");
+            SetSection(applications, initialSection++, "Applications");
             initial.AddRange(applications);
-            SetSection(settings, initialSection, "Configuración");
+            SetSection(settings, initialSection, "Settings");
             initial.AddRange(settings);
             return initial;
         }
@@ -58,8 +58,8 @@ internal sealed class SearchEngine
         int section = 0;
         List<CatalogItem> first = settingsFirst ? settingsFound : apps;
         List<CatalogItem> second = settingsFirst ? apps : settingsFound;
-        string firstName = settingsFirst ? "Configuración" : "Aplicaciones";
-        string secondName = settingsFirst ? "Aplicaciones" : "Configuración";
+        string firstName = settingsFirst ? "Settings" : "Applications";
+        string secondName = settingsFirst ? "Applications" : "Settings";
 
         var firstTop = first.Take(5).ToList();
         if (firstTop.Count > 0)
@@ -81,7 +81,7 @@ internal sealed class SearchEngine
             .ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
         if (other.Count > 0)
         {
-            SetSection(other, section, "Otros resultados");
+            SetSection(other, section, "Other results");
             result.AddRange(other);
         }
         return result;
@@ -116,7 +116,7 @@ internal sealed class SearchEngine
         if (name.Contains(query, StringComparison.Ordinal)) return 82 - Math.Min(20, name.IndexOf(query, StringComparison.Ordinal));
 
         string[] terms = query.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .Where(term => term is not ("de" or "del" or "la" or "el" or "los" or "las" or "para" or "y"))
+            .Where(term => term is not ("the" or "a" or "an" or "of" or "for" or "and" or "to"))
             .ToArray();
         if (terms.Length == 0) return 0;
         int matches = terms.Count(term => haystack.Contains(term, StringComparison.Ordinal));
@@ -134,7 +134,7 @@ internal sealed class SearchEngine
         return new CatalogItem
         {
             Name = formatted,
-            Subtitle = "Pulsa Enter para copiar el resultado",
+            Subtitle = "Press Enter to copy the result",
             SearchTerms = query,
             Kind = ItemKind.Calculator,
             LaunchKind = LaunchKind.None,
