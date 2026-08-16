@@ -20,6 +20,7 @@ internal sealed class NativeHookService : IDisposable
     private const uint LlkhfInjected = 0x10;
     private const uint LlkhfExtended = 0x01;
     private const uint KeyEventFExtendedKey = 0x01;
+    private const uint KeyEventFKeyUp = 0x02;
     private static readonly IntPtr InjectedMarker = new(unchecked((long)0x434F4D49454E5A4F));
     internal static readonly IntPtr IntegrationTestMarker = new(unchecked((long)0x434F4D4954455354));
 
@@ -84,9 +85,9 @@ internal sealed class NativeHookService : IDisposable
             _toggleMenu();
             return (IntPtr)1;
         }
-        if (decision.Action == WindowsKeyAction.ReplayShortcut)
+        if (decision.Action == WindowsKeyAction.BeginShortcut)
         {
-            ReplayWindowsShortcut(decision.WindowsKey, key);
+            BeginWindowsShortcut(decision.WindowsKey, key);
             return (IntPtr)1;
         }
         if (decision.Action == WindowsKeyAction.Suppress) return (IntPtr)1;
@@ -121,26 +122,36 @@ internal sealed class NativeHookService : IDisposable
 
     private static bool IsKeyDown(int key) => (GetAsyncKeyState(key) & 0x8000) != 0;
 
-    private static void ReplayWindowsShortcut(ushort windowsKey, KbdLlHookStruct shortcutKey)
+    private static void BeginWindowsShortcut(ushort windowsKey, KbdLlHookStruct shortcutKey)
     {
-        uint shortcutFlags = (shortcutKey.flags & LlkhfExtended) != 0 ? KeyEventFExtendedKey : 0;
-        INPUT[] replay =
-        {
-            CreateKeyboardInput(windowsKey, 0),
-            CreateKeyboardInput((ushort)shortcutKey.vkCode, shortcutFlags)
-        };
-        _ = SendInput((uint)replay.Length, replay, Marshal.SizeOf<INPUT>());
+        KeyboardReplayEvent[] sequence = CreateShortcutStart(windowsKey,
+            new KeyboardReplayEvent((ushort)shortcutKey.vkCode, (ushort)shortcutKey.scanCode,
+                (shortcutKey.flags & LlkhfExtended) != 0, false));
+        INPUT[] replay = sequence.Select(CreateKeyboardInput).ToArray();
+        uint sent = SendInput((uint)replay.Length, replay, Marshal.SizeOf<INPUT>());
+        if (sent != replay.Length)
+            Debug.WriteLine($"Shortcut start inserted {sent} of {replay.Length} keyboard events. " +
+                $"Win32 error: {Marshal.GetLastWin32Error()}.");
     }
 
-    private static INPUT CreateKeyboardInput(ushort key, uint flags) => new()
+    internal static KeyboardReplayEvent[] CreateShortcutStart(ushort windowsKey,
+        KeyboardReplayEvent shortcutKey) =>
+    [
+        new KeyboardReplayEvent(windowsKey, 0, true, false),
+        shortcutKey
+    ];
+
+    private static INPUT CreateKeyboardInput(KeyboardReplayEvent key) => new()
     {
         type = 1,
         union = new InputUnion
         {
             keyboard = new KEYBDINPUT
             {
-                wVk = key,
-                dwFlags = flags,
+                wVk = key.VirtualKey,
+                wScan = key.ScanCode,
+                dwFlags = (key.IsExtended ? KeyEventFExtendedKey : 0) |
+                          (key.IsKeyUp ? KeyEventFKeyUp : 0),
                 dwExtraInfo = InjectedMarker
             }
         }
@@ -156,11 +167,25 @@ internal sealed class NativeHookService : IDisposable
 
     private delegate IntPtr HookProc(int code, IntPtr message, IntPtr data);
 
+    internal static int InputStructureSize => Marshal.SizeOf<INPUT>();
+
     [StructLayout(LayoutKind.Sequential)] private struct Point { public int x; public int y; }
     [StructLayout(LayoutKind.Sequential)] private struct MsLlHookStruct { public Point pt; public uint mouseData, flags, time; public IntPtr dwExtraInfo; }
     [StructLayout(LayoutKind.Sequential)] private struct KbdLlHookStruct { public int vkCode, scanCode; public uint flags, time; public IntPtr dwExtraInfo; }
     [StructLayout(LayoutKind.Sequential)] private struct INPUT { public uint type; public InputUnion union; }
-    [StructLayout(LayoutKind.Explicit)] private struct InputUnion { [FieldOffset(0)] public KEYBDINPUT keyboard; }
+    [StructLayout(LayoutKind.Explicit)]
+    private struct InputUnion
+    {
+        [FieldOffset(0)] public MOUSEINPUT mouse;
+        [FieldOffset(0)] public KEYBDINPUT keyboard;
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MOUSEINPUT
+    {
+        public int dx, dy;
+        public uint mouseData, dwFlags, time;
+        public IntPtr dwExtraInfo;
+    }
     [StructLayout(LayoutKind.Sequential)] private struct KEYBDINPUT { public ushort wVk, wScan; public uint dwFlags, time; public IntPtr dwExtraInfo; }
 
     [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SetWindowsHookEx(int idHook, HookProc callback, IntPtr module, uint threadId);
@@ -170,3 +195,6 @@ internal sealed class NativeHookService : IDisposable
     [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, INPUT[] inputs, int size);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandle(string? moduleName);
 }
+
+internal readonly record struct KeyboardReplayEvent(ushort VirtualKey, ushort ScanCode,
+    bool IsExtended, bool IsKeyUp);

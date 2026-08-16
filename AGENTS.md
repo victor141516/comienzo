@@ -40,7 +40,8 @@ Do not run UI automation or input-injection integration tests on the user's acti
 
 - A bare Windows-key press opens or toggles Comienzo without allowing the native Start menu to flash.
 - Windows shortcuts must be handled generically. Do not add per-shortcut branches for `Win+R`, `Win+E`, or similar combinations.
-- Every replayed shortcut must preserve balanced key-down and key-up events so the Windows key can never remain logically pressed.
+- When another key is pressed while a captured Windows key is held, begin the native shortcut immediately; do not wait for either key to be released.
+- Reinsert the suppressed Windows-key down together with the first shortcut-key down, then pass subsequent physical events through so their key-up events complete the logical sequence and the Windows key can never remain pressed.
 - Holding Shift while invoking Start must keep the native Windows behavior.
 - A click outside an open menu must close it, including the first click immediately after opening.
 - The WPF window is pre-rendered and kept alive off-screen while logically closed. Do not replace this with repeated `Show`/`Hide` cycles that can expose an unpainted DWM frame.
