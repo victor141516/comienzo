@@ -7,8 +7,8 @@ internal sealed class TrayService : IDisposable
     public TrayService(Action show, Action exit)
     {
         var menu = new System.Windows.Forms.ContextMenuStrip();
-        menu.Items.Add("Abrir Comienzo", null, (_, _) => show());
-        var startup = new System.Windows.Forms.ToolStripMenuItem("Iniciar con Windows")
+        menu.Items.Add("Open Comienzo", null, (_, _) => show());
+        var startup = new System.Windows.Forms.ToolStripMenuItem("Start with Windows")
         {
             CheckOnClick = true,
             Checked = StartupService.IsEnabled()
@@ -25,10 +25,10 @@ internal sealed class TrayService : IDisposable
         };
         menu.Items.Add(startup);
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
-        menu.Items.Add("Salir", null, (_, _) => exit());
+        menu.Items.Add("Exit", null, (_, _) => exit());
         _icon = new System.Windows.Forms.NotifyIcon
         {
-            Text = "Comienzo — menú Inicio alternativo",
+            Text = "Comienzo — alternative Start menu",
             Icon = System.Drawing.SystemIcons.Application,
             ContextMenuStrip = menu,
             Visible = true

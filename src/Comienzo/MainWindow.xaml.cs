@@ -107,7 +107,7 @@ public partial class MainWindow : Window
     {
         UpdateLayout();
         ScrollViewer? viewer = FindVisualChild<ScrollViewer>(ResultsList);
-        if (viewer is null) throw new InvalidOperationException("No se encontró el ScrollViewer de resultados.");
+        if (viewer is null) throw new InvalidOperationException("The results ScrollViewer was not found.");
 
         long missesBefore = IconService.CacheMissCount;
         var timer = Stopwatch.StartNew();
@@ -330,7 +330,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            System.Windows.MessageBox.Show(this, $"No se pudo abrir {item.Name}.\n\n{exception.Message}",
+            System.Windows.MessageBox.Show(this, $"Could not open {item.Name}.\n\n{exception.Message}",
                 "Comienzo", MessageBoxButton.OK, MessageBoxImage.Warning);
             FocusWindowAndSearch();
         }
@@ -476,6 +476,7 @@ public partial class MainWindow : Window
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
         IntPtr handle = new WindowInteropHelper(this).Handle;
+        if (!ShowInTaskbar) ExcludeFromTaskSwitcher(handle);
         int enabled = 1;
         int corner = 2;
         int backdrop = 3;
@@ -486,13 +487,29 @@ public partial class MainWindow : Window
         DwmSetWindowAttribute(handle, 38, ref backdrop, sizeof(int));
     }
 
+    private static void ExcludeFromTaskSwitcher(IntPtr handle)
+    {
+        nint extendedStyle = GetWindowLongPtr(handle, GwlExStyle);
+        nint taskSwitcherStyle = (extendedStyle | WsExToolWindow) & ~WsExAppWindow;
+        if (taskSwitcherStyle == extendedStyle) return;
+
+        SetWindowLongPtr(handle, GwlExStyle, taskSwitcherStyle);
+        SetWindowPos(handle, IntPtr.Zero, 0, 0, 0, 0,
+            SwpNoActivate | SwpNoMove | SwpNoSize | SwpNoZOrder | SwpNoOwnerZOrder | SwpFrameChanged);
+    }
+
     private static readonly IntPtr HwndTopMost = new(-1);
+    private const int GwlExStyle = -20;
+    private const nint WsExToolWindow = 0x00000080;
+    private const nint WsExAppWindow = 0x00040000;
     private const byte VkMenu = 0x12;
     private const uint KeyEventFKeyUp = 0x0002;
     private const uint SwpNoActivate = 0x0010;
+    private const uint SwpNoMove = 0x0002;
     private const uint SwpNoSize = 0x0001;
     private const uint SwpNoZOrder = 0x0004;
     private const uint SwpNoOwnerZOrder = 0x0200;
+    private const uint SwpFrameChanged = 0x0020;
     private const uint MonitorDefaultToNearest = 0x00000002;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -514,6 +531,10 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")] private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool attach);
     [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] private static extern bool ShowWindowAsync(IntPtr window, int command);
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    private static extern nint GetWindowLongPtr(IntPtr window, int index);
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+    private static extern nint SetWindowLongPtr(IntPtr window, int index, nint value);
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr window, IntPtr insertAfter,
         int x, int y, int width, int height, uint flags);
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr window, out NativeRect rectangle);

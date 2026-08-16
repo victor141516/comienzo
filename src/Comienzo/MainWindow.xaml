@@ -105,7 +105,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="&#xE721;" FontFamily="Segoe Fluent Icons" FontSize="18"
                                    Foreground="#CCFFFFFF" VerticalAlignment="Center" HorizontalAlignment="Center" />
-                        <TextBlock x:Name="Placeholder" Grid.Column="1" Text="Busca aplicaciones, ajustes o calcula…"
+                        <TextBlock x:Name="Placeholder" Grid.Column="1" Text="Search apps, settings, or calculate…"
                                    Foreground="#88FFFFFF" FontSize="15" VerticalAlignment="Center"
                                    IsHitTestVisible="False" />
                         <TextBox x:Name="SearchBox" Grid.Column="1" Background="Transparent" BorderThickness="0"

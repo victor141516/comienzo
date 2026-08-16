@@ -22,7 +22,7 @@ internal static class StartupService
         using RegistryKey key = Registry.CurrentUser.CreateSubKey(KeyPath, true);
         if (enabled)
         {
-            string executable = Environment.ProcessPath ?? throw new InvalidOperationException("No se encontró el ejecutable.");
+            string executable = Environment.ProcessPath ?? throw new InvalidOperationException("The executable was not found.");
             key.SetValue(ValueName, $"\"{executable}\" --background", RegistryValueKind.String);
         }
         else

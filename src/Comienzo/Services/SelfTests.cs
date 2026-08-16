@@ -25,7 +25,7 @@ internal static class SelfTests
             });
             CatalogItem firstApp = engine.Search("Google Chrome").First();
             if (firstApp.Kind != ItemKind.Application) throw new Exception("Exact app ranking failed");
-            CatalogItem firstSetting = engine.Search("resolución de pantalla").First();
+            CatalogItem firstSetting = engine.Search("display resolution").First();
             if (firstSetting.Kind != ItemKind.Setting) throw new Exception("Settings ranking failed");
             CatalogItem calculator = engine.Search("(8+2)/5").First();
             if (calculator.Kind != ItemKind.Calculator || calculator.Name != "2") throw new Exception("Calculator result failed");
@@ -45,7 +45,7 @@ internal static class SelfTests
                 using (UsageService.SetTemporaryUsage(chrome, 12))
                 {
                     CatalogItem frequent = engine.Search("").First();
-                    if (frequent.Name != "Google Chrome" || frequent.SectionName != "Más usados")
+                    if (frequent.Name != "Google Chrome" || frequent.SectionName != "Most used")
                         throw new Exception("Frequent item ranking failed");
                 }
 
@@ -90,8 +90,8 @@ internal static class SelfTests
                 locatedStart = hooks.FindStartButtonNear(cursor.X, cursor.Y);
             }
             File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "self-test-report.txt"),
-                $"Aplicaciones descubiertas: {discovered.Count}{Environment.NewLine}" +
-                $"Botón Inicio: {locatedStart}{Environment.NewLine}" +
+                $"Applications discovered: {discovered.Count}{Environment.NewLine}" +
+                $"Start button: {locatedStart}{Environment.NewLine}" +
                 string.Join(Environment.NewLine, discovered.Take(25).Select(x => $"- {x.Name} [{x.Target}]")));
             return 0;
         }

@@ -44,6 +44,7 @@ Do not run UI automation or input-injection integration tests on the user's acti
 - Holding Shift while invoking Start must keep the native Windows behavior.
 - A click outside an open menu must close it, including the first click immediately after opening.
 - The WPF window is pre-rendered and kept alive off-screen while logically closed. Do not replace this with repeated `Show`/`Hide` cycles that can expose an unpainted DWM frame.
+- The production menu window must remain excluded from the taskbar and Alt+Tab while both open and logically closed.
 - Catalog and icon work must finish before the first interactive opening. WPF image objects created off the UI thread must be frozen before binding.
 - App discovery must preserve shell launch semantics for `.lnk`, `.url`, `.appref-ms`, MSIX apps, and registered URI protocols.
 - Usage ranking is local-only and must never prevent an application from launching if persistence fails.
@@ -56,11 +57,13 @@ Do not run UI automation or input-injection integration tests on the user's acti
 - Release native handles, icons, COM objects, hooks, timers, and tray resources deterministically.
 - Preserve Windows 10 compatibility when using Windows 11 DWM attributes: optional APIs must fail safely.
 - Do not add production dependencies unless they materially reduce complexity or risk.
-- Keep user-facing strings in Spanish unless a task explicitly changes the product language.
+- All repository-authored text must be written in English, including documentation, metadata, diagnostics, tests, and developer-facing messages.
 
 ## UI changes
 
 - Match the Windows 11 visual language while keeping the app lightweight.
+- All user-facing interface text must always be written in English. This includes labels, placeholders, tooltips, tray commands, dialogs, notifications, errors, settings entries, accessibility text, and search aliases.
+- Do not introduce localized or non-English UI strings unless the project first adopts a deliberate localization system and this file is updated accordingly.
 - Verify focus, keyboard navigation, high-DPI positioning, multi-monitor bounds, scrolling, and first-frame rendering.
 - Avoid layout changes that reintroduce the Enter glyph, remove the screen-edge gap, or make the window wider without a demonstrated need.
 - For visual changes, inspect an actual rendered window or snapshot in addition to checking XAML.
@@ -68,7 +71,7 @@ Do not run UI automation or input-injection integration tests on the user's acti
 ## Release process
 
 - Update `<Version>` in `src/Comienzo/Comienzo.csproj` before tagging.
-- Use tags such as `v0.2.4`.
+- Use tags such as `v0.2.5`.
 - Never commit generated release binaries. GitHub Actions produces and attaches x64 and ARM64 ZIP files.
 - Do not move or force-update a published release tag.
 

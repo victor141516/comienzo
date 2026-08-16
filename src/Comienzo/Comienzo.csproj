@@ -10,8 +10,8 @@
     <AssemblyName>Comienzo</AssemblyName>
     <RootNamespace>Comienzo</RootNamespace>
     <Product>Comienzo</Product>
-    <Description>Menú Inicio alternativo para Windows 10 y Windows 11</Description>
-    <Version>0.2.4</Version>
+    <Description>Alternative Start menu for Windows 10 and Windows 11</Description>
+    <Version>0.2.5</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
