@@ -111,28 +111,27 @@ internal static class SelfTests
 
     private static void AssertWindowsKeyBehavior()
     {
-        AssertShortcutReplayEvents();
+        AssertShortcutStartEvents();
 
         var shortcut = new WindowsKeyStateMachine();
         AssertAction(shortcut.Process(WindowsKeyStateMachine.LeftWindowsKey, true, false, false, false, false),
             WindowsKeyAction.Suppress,
             "Win down");
         AssertAction(shortcut.Process('R', true, false, false, false, false),
-            WindowsKeyAction.CaptureShortcut, "Win+R down");
-        AssertAction(shortcut.Process('R', false, true, false, false, false),
-            WindowsKeyAction.CaptureShortcut, "Win+R up");
-        AssertAction(shortcut.Process(WindowsKeyStateMachine.LeftWindowsKey, false, true,
-            false, false, false), WindowsKeyAction.ReplayShortcut, "Win+R release");
+            WindowsKeyAction.BeginShortcut, "Win+R down");
+        AssertPass(shortcut.Process('R', false, true, false, false, false), "Win+R up");
+        AssertPass(shortcut.Process(WindowsKeyStateMachine.LeftWindowsKey, false, true,
+            false, false, false), "Win+R release");
 
         var reverseRelease = new WindowsKeyStateMachine();
         AssertAction(reverseRelease.Process(WindowsKeyStateMachine.LeftWindowsKey, true, false,
             false, false, false), WindowsKeyAction.Suppress, "reverse release Win down");
         AssertAction(reverseRelease.Process('R', true, false, false, false, false),
-            WindowsKeyAction.CaptureShortcut, "reverse release R down");
-        AssertAction(reverseRelease.Process(WindowsKeyStateMachine.LeftWindowsKey, false, true,
-            false, false, false), WindowsKeyAction.CaptureShortcut, "reverse release Win up");
-        AssertAction(reverseRelease.Process('R', false, true, false, false, false),
-            WindowsKeyAction.ReplayShortcut, "reverse release R up");
+            WindowsKeyAction.BeginShortcut, "reverse release R down");
+        AssertPass(reverseRelease.Process(WindowsKeyStateMachine.LeftWindowsKey, false, true,
+            false, false, false), "reverse release Win up");
+        AssertPass(reverseRelease.Process('R', false, true, false, false, false),
+            "reverse release R up");
 
         var bare = new WindowsKeyStateMachine();
         AssertAction(bare.Process(WindowsKeyStateMachine.LeftWindowsKey, true, false, false, false, false),
@@ -153,16 +152,16 @@ internal static class SelfTests
         AssertAction(shiftAfterWindows.Process(WindowsKeyStateMachine.LeftWindowsKey, true, false,
             false, false, false), WindowsKeyAction.Suppress, "Win before Shift");
         AssertAction(shiftAfterWindows.Process(0x10, true, false, true, false, false),
-            WindowsKeyAction.CaptureShortcut,
+            WindowsKeyAction.BeginShortcut,
             "Shift pressed after Win");
-        AssertAction(shiftAfterWindows.Process('S', true, false, true, false, false),
-            WindowsKeyAction.CaptureShortcut, "S pressed after Win+Shift");
-        AssertAction(shiftAfterWindows.Process('S', false, true, true, false, false),
-            WindowsKeyAction.CaptureShortcut, "S released after Win+Shift");
-        AssertAction(shiftAfterWindows.Process(0x10, false, true, false, false, false),
-            WindowsKeyAction.CaptureShortcut, "Shift released after Win+Shift+S");
-        AssertAction(shiftAfterWindows.Process(WindowsKeyStateMachine.LeftWindowsKey, false, true,
-            false, false, false), WindowsKeyAction.ReplayShortcut, "Win released after Shift combo");
+        AssertPass(shiftAfterWindows.Process('S', true, false, true, false, false),
+            "S pressed after Win+Shift");
+        AssertPass(shiftAfterWindows.Process('S', false, true, true, false, false),
+            "S released after Win+Shift");
+        AssertPass(shiftAfterWindows.Process(0x10, false, true, false, false, false),
+            "Shift released after Win+Shift+S");
+        AssertPass(shiftAfterWindows.Process(WindowsKeyStateMachine.LeftWindowsKey, false, true,
+            false, false, false), "Win released after Shift combo");
 
         int[] shortcutKeys = Enumerable.Range('A', 26)
             .Concat(Enumerable.Range('0', 10))
@@ -174,12 +173,11 @@ internal static class SelfTests
             AssertAction(anyShortcut.Process(WindowsKeyStateMachine.LeftWindowsKey, true, false,
                 false, false, false), WindowsKeyAction.Suppress, $"Win+{shortcutKey:X2} initial");
             AssertAction(anyShortcut.Process(shortcutKey, true, false, false, false, false),
-                WindowsKeyAction.CaptureShortcut, $"Win+{shortcutKey:X2} capture");
-            AssertAction(anyShortcut.Process(shortcutKey, false, true, false, false, false),
-                WindowsKeyAction.CaptureShortcut, $"Win+{shortcutKey:X2} key release");
-            AssertAction(anyShortcut.Process(WindowsKeyStateMachine.LeftWindowsKey, false, true,
-                false, false, false), WindowsKeyAction.ReplayShortcut,
-                $"Win+{shortcutKey:X2} Win release");
+                WindowsKeyAction.BeginShortcut, $"Win+{shortcutKey:X2} start");
+            AssertPass(anyShortcut.Process(shortcutKey, false, true, false, false, false),
+                $"Win+{shortcutKey:X2} key release");
+            AssertPass(anyShortcut.Process(WindowsKeyStateMachine.LeftWindowsKey, false, true,
+                false, false, false), $"Win+{shortcutKey:X2} Win release");
         }
 
         var rightBare = new WindowsKeyStateMachine();
@@ -189,38 +187,29 @@ internal static class SelfTests
             false, false, false), WindowsKeyAction.ToggleComienzo, "right Win release");
     }
 
-    private static void AssertShortcutReplayEvents()
+    private static void AssertShortcutStartEvents()
     {
         int expectedInputSize = IntPtr.Size == 8 ? 40 : 28;
         if (NativeHookService.InputStructureSize != expectedInputSize)
             throw new Exception($"Native INPUT size was {NativeHookService.InputStructureSize}; " +
                 $"expected {expectedInputSize}");
 
-        KeyboardReplayEvent[] letterReplay = NativeHookService.CreateShortcutReplay(
+        KeyboardReplayEvent[] letterReplay = NativeHookService.CreateShortcutStart(
             WindowsKeyStateMachine.LeftWindowsKey,
-            [
-                new KeyboardReplayEvent('R', 0x13, false, false),
-                new KeyboardReplayEvent('R', 0x13, false, true)
-            ]);
+            new KeyboardReplayEvent('R', 0x13, false, false));
         KeyboardReplayEvent[] expectedLetterReplay =
         [
             new KeyboardReplayEvent(WindowsKeyStateMachine.LeftWindowsKey, 0, true, false),
-            new KeyboardReplayEvent('R', 0x13, false, false),
-            new KeyboardReplayEvent('R', 0x13, false, true),
-            new KeyboardReplayEvent(WindowsKeyStateMachine.LeftWindowsKey, 0, true, true)
+            new KeyboardReplayEvent('R', 0x13, false, false)
         ];
         if (!letterReplay.SequenceEqual(expectedLetterReplay))
-            throw new Exception("Win+R replay was not a complete, balanced keyboard sequence");
+            throw new Exception("Win+R did not begin with the suppressed Windows and shortcut key downs");
 
-        KeyboardReplayEvent[] extendedReplay = NativeHookService.CreateShortcutReplay(
+        KeyboardReplayEvent[] extendedReplay = NativeHookService.CreateShortcutStart(
             WindowsKeyStateMachine.RightWindowsKey,
-            [
-                new KeyboardReplayEvent(0x27, 0x4D, true, false),
-                new KeyboardReplayEvent(0x27, 0x4D, true, true)
-            ]);
-        if (extendedReplay[1] != new KeyboardReplayEvent(0x27, 0x4D, true, false) ||
-            extendedReplay[2] != new KeyboardReplayEvent(0x27, 0x4D, true, true))
-            throw new Exception("Extended Windows shortcut replay did not preserve key metadata");
+            new KeyboardReplayEvent(0x27, 0x4D, true, false));
+        if (extendedReplay[1] != new KeyboardReplayEvent(0x27, 0x4D, true, false))
+            throw new Exception("Extended Windows shortcut start did not preserve key metadata");
     }
 
     private static void AssertWindowPositioning()

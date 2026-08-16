@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Windows.Threading;
 
 namespace Comienzo.Services;
 
@@ -32,8 +31,6 @@ internal sealed class NativeHookService : IDisposable
     private readonly HookProc _keyboardProc;
     private readonly HookProc _mouseProc;
     private readonly WindowsKeyStateMachine _windowsKeyState = new();
-    private readonly Dispatcher _dispatcher;
-    private readonly List<KeyboardReplayEvent> _capturedShortcutEvents = new();
     private IntPtr _keyboardHook;
     private IntPtr _mouseHook;
     private bool _startMouseDown;
@@ -46,7 +43,6 @@ internal sealed class NativeHookService : IDisposable
         _allowIntegrationTestInput = allowIntegrationTestInput;
         _keyboardProc = KeyboardCallback;
         _mouseProc = MouseCallback;
-        _dispatcher = Dispatcher.CurrentDispatcher;
     }
 
     internal bool HasLocatedStartButton => _startButton.HasAny;
@@ -84,21 +80,14 @@ internal sealed class NativeHookService : IDisposable
             IsKeyDown(VkShift), IsKeyDown(VkControl), IsKeyDown(VkMenu));
         if (decision.Action == WindowsKeyAction.ToggleComienzo)
         {
-            _capturedShortcutEvents.Clear();
             // The low-level hook runs on the thread that installed it (the WPF dispatcher thread).
             // Show and focus the already-warmed window before a following character can be delivered.
             _toggleMenu();
             return (IntPtr)1;
         }
-        if (decision.Action == WindowsKeyAction.CaptureShortcut)
+        if (decision.Action == WindowsKeyAction.BeginShortcut)
         {
-            CaptureShortcutEvent(key, up);
-            return (IntPtr)1;
-        }
-        if (decision.Action == WindowsKeyAction.ReplayShortcut)
-        {
-            CaptureShortcutEvent(key, up);
-            QueueWindowsShortcutReplay(decision.WindowsKey);
+            BeginWindowsShortcut(decision.WindowsKey, key);
             return (IntPtr)1;
         }
         if (decision.Action == WindowsKeyAction.Suppress) return (IntPtr)1;
@@ -133,44 +122,24 @@ internal sealed class NativeHookService : IDisposable
 
     private static bool IsKeyDown(int key) => (GetAsyncKeyState(key) & 0x8000) != 0;
 
-    private void CaptureShortcutEvent(KbdLlHookStruct key, bool isKeyUp)
+    private static void BeginWindowsShortcut(ushort windowsKey, KbdLlHookStruct shortcutKey)
     {
-        if (key.vkCode is WindowsKeyStateMachine.LeftWindowsKey or WindowsKeyStateMachine.RightWindowsKey)
-            return;
-        _capturedShortcutEvents.Add(new KeyboardReplayEvent((ushort)key.vkCode, (ushort)key.scanCode,
-            (key.flags & LlkhfExtended) != 0, isKeyUp));
-    }
-
-    private void QueueWindowsShortcutReplay(ushort windowsKey)
-    {
-        KeyboardReplayEvent[] captured = _capturedShortcutEvents.ToArray();
-        _capturedShortcutEvents.Clear();
-        // A low-level hook runs before Windows updates asynchronous key state. Deferring until the
-        // callback returns ensures SendInput sees the physical chord as released.
-        _dispatcher.BeginInvoke(() => ReplayWindowsShortcut(windowsKey, captured), DispatcherPriority.Input);
-    }
-
-    private static void ReplayWindowsShortcut(ushort windowsKey,
-        IReadOnlyList<KeyboardReplayEvent> capturedEvents)
-    {
-        KeyboardReplayEvent[] sequence = CreateShortcutReplay(windowsKey, capturedEvents);
+        KeyboardReplayEvent[] sequence = CreateShortcutStart(windowsKey,
+            new KeyboardReplayEvent((ushort)shortcutKey.vkCode, (ushort)shortcutKey.scanCode,
+                (shortcutKey.flags & LlkhfExtended) != 0, false));
         INPUT[] replay = sequence.Select(CreateKeyboardInput).ToArray();
         uint sent = SendInput((uint)replay.Length, replay, Marshal.SizeOf<INPUT>());
         if (sent != replay.Length)
-            Debug.WriteLine($"Shortcut replay inserted {sent} of {replay.Length} keyboard events. " +
+            Debug.WriteLine($"Shortcut start inserted {sent} of {replay.Length} keyboard events. " +
                 $"Win32 error: {Marshal.GetLastWin32Error()}.");
     }
 
-    internal static KeyboardReplayEvent[] CreateShortcutReplay(ushort windowsKey,
-        IReadOnlyList<KeyboardReplayEvent> capturedEvents)
-    {
-        var sequence = new KeyboardReplayEvent[capturedEvents.Count + 2];
-        sequence[0] = new KeyboardReplayEvent(windowsKey, 0, true, false);
-        for (int index = 0; index < capturedEvents.Count; index++)
-            sequence[index + 1] = capturedEvents[index];
-        sequence[^1] = new KeyboardReplayEvent(windowsKey, 0, true, true);
-        return sequence;
-    }
+    internal static KeyboardReplayEvent[] CreateShortcutStart(ushort windowsKey,
+        KeyboardReplayEvent shortcutKey) =>
+    [
+        new KeyboardReplayEvent(windowsKey, 0, true, false),
+        shortcutKey
+    ];
 
     private static INPUT CreateKeyboardInput(KeyboardReplayEvent key) => new()
     {
