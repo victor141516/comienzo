@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Windows.Threading;
 
 namespace Comienzo.Services;
 
@@ -20,6 +21,7 @@ internal sealed class NativeHookService : IDisposable
     private const uint LlkhfInjected = 0x10;
     private const uint LlkhfExtended = 0x01;
     private const uint KeyEventFExtendedKey = 0x01;
+    private const uint KeyEventFKeyUp = 0x02;
     private static readonly IntPtr InjectedMarker = new(unchecked((long)0x434F4D49454E5A4F));
     internal static readonly IntPtr IntegrationTestMarker = new(unchecked((long)0x434F4D4954455354));
 
@@ -30,6 +32,8 @@ internal sealed class NativeHookService : IDisposable
     private readonly HookProc _keyboardProc;
     private readonly HookProc _mouseProc;
     private readonly WindowsKeyStateMachine _windowsKeyState = new();
+    private readonly Dispatcher _dispatcher;
+    private readonly List<KeyboardReplayEvent> _capturedShortcutEvents = new();
     private IntPtr _keyboardHook;
     private IntPtr _mouseHook;
     private bool _startMouseDown;
@@ -42,6 +46,7 @@ internal sealed class NativeHookService : IDisposable
         _allowIntegrationTestInput = allowIntegrationTestInput;
         _keyboardProc = KeyboardCallback;
         _mouseProc = MouseCallback;
+        _dispatcher = Dispatcher.CurrentDispatcher;
     }
 
     internal bool HasLocatedStartButton => _startButton.HasAny;
@@ -79,14 +84,21 @@ internal sealed class NativeHookService : IDisposable
             IsKeyDown(VkShift), IsKeyDown(VkControl), IsKeyDown(VkMenu));
         if (decision.Action == WindowsKeyAction.ToggleComienzo)
         {
+            _capturedShortcutEvents.Clear();
             // The low-level hook runs on the thread that installed it (the WPF dispatcher thread).
             // Show and focus the already-warmed window before a following character can be delivered.
             _toggleMenu();
             return (IntPtr)1;
         }
+        if (decision.Action == WindowsKeyAction.CaptureShortcut)
+        {
+            CaptureShortcutEvent(key, up);
+            return (IntPtr)1;
+        }
         if (decision.Action == WindowsKeyAction.ReplayShortcut)
         {
-            ReplayWindowsShortcut(decision.WindowsKey, key);
+            CaptureShortcutEvent(key, up);
+            QueueWindowsShortcutReplay(decision.WindowsKey);
             return (IntPtr)1;
         }
         if (decision.Action == WindowsKeyAction.Suppress) return (IntPtr)1;
@@ -121,10 +133,27 @@ internal sealed class NativeHookService : IDisposable
 
     private static bool IsKeyDown(int key) => (GetAsyncKeyState(key) & 0x8000) != 0;
 
-    private static void ReplayWindowsShortcut(ushort windowsKey, KbdLlHookStruct shortcutKey)
+    private void CaptureShortcutEvent(KbdLlHookStruct key, bool isKeyUp)
     {
-        KeyboardReplayEvent[] sequence = CreateShortcutReplay(windowsKey, shortcutKey.vkCode,
-            shortcutKey.scanCode, (shortcutKey.flags & LlkhfExtended) != 0);
+        if (key.vkCode is WindowsKeyStateMachine.LeftWindowsKey or WindowsKeyStateMachine.RightWindowsKey)
+            return;
+        _capturedShortcutEvents.Add(new KeyboardReplayEvent((ushort)key.vkCode, (ushort)key.scanCode,
+            (key.flags & LlkhfExtended) != 0, isKeyUp));
+    }
+
+    private void QueueWindowsShortcutReplay(ushort windowsKey)
+    {
+        KeyboardReplayEvent[] captured = _capturedShortcutEvents.ToArray();
+        _capturedShortcutEvents.Clear();
+        // A low-level hook runs before Windows updates asynchronous key state. Deferring until the
+        // callback returns ensures SendInput sees the physical chord as released.
+        _dispatcher.BeginInvoke(() => ReplayWindowsShortcut(windowsKey, captured), DispatcherPriority.Input);
+    }
+
+    private static void ReplayWindowsShortcut(ushort windowsKey,
+        IReadOnlyList<KeyboardReplayEvent> capturedEvents)
+    {
+        KeyboardReplayEvent[] sequence = CreateShortcutReplay(windowsKey, capturedEvents);
         INPUT[] replay = sequence.Select(CreateKeyboardInput).ToArray();
         uint sent = SendInput((uint)replay.Length, replay, Marshal.SizeOf<INPUT>());
         if (sent != replay.Length)
@@ -132,12 +161,16 @@ internal sealed class NativeHookService : IDisposable
                 $"Win32 error: {Marshal.GetLastWin32Error()}.");
     }
 
-    internal static KeyboardReplayEvent[] CreateShortcutReplay(ushort windowsKey, int shortcutKey,
-        int shortcutScanCode, bool shortcutIsExtended) =>
-    [
-        new KeyboardReplayEvent(windowsKey, 0, true),
-        new KeyboardReplayEvent((ushort)shortcutKey, (ushort)shortcutScanCode, shortcutIsExtended)
-    ];
+    internal static KeyboardReplayEvent[] CreateShortcutReplay(ushort windowsKey,
+        IReadOnlyList<KeyboardReplayEvent> capturedEvents)
+    {
+        var sequence = new KeyboardReplayEvent[capturedEvents.Count + 2];
+        sequence[0] = new KeyboardReplayEvent(windowsKey, 0, true, false);
+        for (int index = 0; index < capturedEvents.Count; index++)
+            sequence[index + 1] = capturedEvents[index];
+        sequence[^1] = new KeyboardReplayEvent(windowsKey, 0, true, true);
+        return sequence;
+    }
 
     private static INPUT CreateKeyboardInput(KeyboardReplayEvent key) => new()
     {
@@ -148,7 +181,8 @@ internal sealed class NativeHookService : IDisposable
             {
                 wVk = key.VirtualKey,
                 wScan = key.ScanCode,
-                dwFlags = key.IsExtended ? KeyEventFExtendedKey : 0,
+                dwFlags = (key.IsExtended ? KeyEventFExtendedKey : 0) |
+                          (key.IsKeyUp ? KeyEventFKeyUp : 0),
                 dwExtraInfo = InjectedMarker
             }
         }
@@ -179,4 +213,5 @@ internal sealed class NativeHookService : IDisposable
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandle(string? moduleName);
 }
 
-internal readonly record struct KeyboardReplayEvent(ushort VirtualKey, ushort ScanCode, bool IsExtended);
+internal readonly record struct KeyboardReplayEvent(ushort VirtualKey, ushort ScanCode,
+    bool IsExtended, bool IsKeyUp);

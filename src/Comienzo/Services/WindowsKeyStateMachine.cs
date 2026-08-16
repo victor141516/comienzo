@@ -5,6 +5,7 @@ internal enum WindowsKeyAction
     PassThrough,
     Suppress,
     ToggleComienzo,
+    CaptureShortcut,
     ReplayShortcut
 }
 
@@ -16,9 +17,11 @@ internal sealed class WindowsKeyStateMachine
     internal const int RightWindowsKey = 0x5C;
 
     private bool _held;
-    private bool _shortcutReplayed;
+    private bool _capturingShortcut;
+    private bool _windowsKeyReleased;
     private bool _nativeBypass;
     private ushort _windowsKey;
+    private readonly HashSet<int> _pressedShortcutKeys = new();
 
     public WindowsKeyDecision Process(int virtualKey, bool isDown, bool isUp,
         bool shiftAlreadyDown, bool controlAlreadyDown, bool altAlreadyDown)
@@ -29,37 +32,49 @@ internal sealed class WindowsKeyStateMachine
             if (!_held)
             {
                 _held = true;
-                _shortcutReplayed = false;
+                _capturingShortcut = false;
+                _windowsKeyReleased = false;
                 _nativeBypass = shiftAlreadyDown || controlAlreadyDown || altAlreadyDown;
                 _windowsKey = (ushort)virtualKey;
                 return Decision(_nativeBypass ? WindowsKeyAction.PassThrough : WindowsKeyAction.Suppress);
             }
 
-            if (virtualKey != _windowsKey && !_nativeBypass && !_shortcutReplayed)
-            {
-                _shortcutReplayed = true;
-                return Decision(WindowsKeyAction.ReplayShortcut);
-            }
-
-            return Decision(_nativeBypass || _shortcutReplayed
+            return Decision(_nativeBypass
                 ? WindowsKeyAction.PassThrough
-                : WindowsKeyAction.Suppress);
+                : _capturingShortcut ? WindowsKeyAction.CaptureShortcut : WindowsKeyAction.Suppress);
         }
 
-        if (_held && !isWindowsKey && isDown)
+        if ((_held || _capturingShortcut) && !isWindowsKey)
         {
-            if (_nativeBypass || _shortcutReplayed) return Decision(WindowsKeyAction.PassThrough);
-            _shortcutReplayed = true;
-            return Decision(WindowsKeyAction.ReplayShortcut);
+            if (_nativeBypass) return Decision(WindowsKeyAction.PassThrough);
+            if (isDown)
+            {
+                _capturingShortcut = true;
+                _pressedShortcutKeys.Add(virtualKey);
+                return Decision(WindowsKeyAction.CaptureShortcut);
+            }
+            if (isUp && _capturingShortcut && _pressedShortcutKeys.Remove(virtualKey))
+                return CompleteCapturedShortcutIfReleased();
         }
 
         if (isWindowsKey && isUp && _held && virtualKey == _windowsKey)
         {
-            WindowsKeyDecision decision = Decision(!_nativeBypass && !_shortcutReplayed
-                ? WindowsKeyAction.ToggleComienzo
-                : WindowsKeyAction.PassThrough);
-            Reset();
-            return decision;
+            if (_nativeBypass)
+            {
+                WindowsKeyDecision native = Decision(WindowsKeyAction.PassThrough);
+                Reset();
+                return native;
+            }
+            if (!_capturingShortcut)
+            {
+                WindowsKeyDecision bare = Decision(WindowsKeyAction.ToggleComienzo);
+                Reset();
+                return bare;
+            }
+
+            _held = false;
+            _windowsKeyReleased = true;
+            return CompleteCapturedShortcutIfReleased();
         }
 
         return Decision(WindowsKeyAction.PassThrough);
@@ -67,11 +82,23 @@ internal sealed class WindowsKeyStateMachine
 
     private WindowsKeyDecision Decision(WindowsKeyAction action) => new(action, _windowsKey);
 
+    private WindowsKeyDecision CompleteCapturedShortcutIfReleased()
+    {
+        if (!_windowsKeyReleased || _pressedShortcutKeys.Count > 0)
+            return Decision(WindowsKeyAction.CaptureShortcut);
+
+        WindowsKeyDecision replay = Decision(WindowsKeyAction.ReplayShortcut);
+        Reset();
+        return replay;
+    }
+
     private void Reset()
     {
         _held = false;
-        _shortcutReplayed = false;
+        _capturingShortcut = false;
+        _windowsKeyReleased = false;
         _nativeBypass = false;
         _windowsKey = 0;
+        _pressedShortcutKeys.Clear();
     }
 }
