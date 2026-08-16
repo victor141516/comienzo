@@ -71,7 +71,7 @@ Do not run UI automation or input-injection integration tests on the user's acti
 ## Release process
 
 - Update `<Version>` in `src/Comienzo/Comienzo.csproj` before tagging.
-- Use tags such as `v0.2.4`.
+- Use tags such as `v0.2.5`.
 - Never commit generated release binaries. GitHub Actions produces and attaches x64 and ARM64 ZIP files.
 - Do not move or force-update a published release tag.
 

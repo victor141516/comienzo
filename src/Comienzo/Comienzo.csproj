@@ -11,7 +11,7 @@
     <RootNamespace>Comienzo</RootNamespace>
     <Product>Comienzo</Product>
     <Description>Alternative Start menu for Windows 10 and Windows 11</Description>
-    <Version>0.2.4</Version>
+    <Version>0.2.5</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>

@@ -86,8 +86,8 @@ Every tag pushed to GitHub triggers [`.github/workflows/release.yml`](.github/wo
 Recommended convention:
 
 ```powershell
-git tag v0.2.4
-git push origin v0.2.4
+git tag v0.2.5
+git push origin v0.2.5
 ```
 
 Before creating the tag, update `<Version>` in [`src/Comienzo/Comienzo.csproj`](src/Comienzo/Comienzo.csproj) to match it.
