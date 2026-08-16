@@ -17,6 +17,7 @@ Comienzo is a lightweight, native alternative Start menu for Windows 10 and Wind
 - Includes a calculator with parentheses, operator precedence, and powers.
 - Ranks frequently used items using local data only.
 - Preloads the window and icons for immediate opening and smooth scrolling.
+- Stays out of the taskbar and Alt+Tab while remaining pre-rendered in the background.
 - Provides self-contained packages for Windows x64 and Windows ARM64.
 
 ## Download and run

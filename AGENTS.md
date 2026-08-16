@@ -44,6 +44,7 @@ Do not run UI automation or input-injection integration tests on the user's acti
 - Holding Shift while invoking Start must keep the native Windows behavior.
 - A click outside an open menu must close it, including the first click immediately after opening.
 - The WPF window is pre-rendered and kept alive off-screen while logically closed. Do not replace this with repeated `Show`/`Hide` cycles that can expose an unpainted DWM frame.
+- The production menu window must remain excluded from the taskbar and Alt+Tab while both open and logically closed.
 - Catalog and icon work must finish before the first interactive opening. WPF image objects created off the UI thread must be frozen before binding.
 - App discovery must preserve shell launch semantics for `.lnk`, `.url`, `.appref-ms`, MSIX apps, and registered URI protocols.
 - Usage ranking is local-only and must never prevent an application from launching if persistence fails.
