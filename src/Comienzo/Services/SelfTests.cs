@@ -16,7 +16,7 @@ internal static class SelfTests
             if (MathEvaluator.TryEvaluate("5/0", out _)) throw new Exception("Accepted division by zero");
 
             var chrome = new CatalogItem { Name = "Google Chrome", Kind = ItemKind.Application, Target = "chrome.exe" };
-            var notepad = new CatalogItem { Name = "Bloc de notas", Kind = ItemKind.Application, Target = "notepad.exe" };
+            var notepad = new CatalogItem { Name = "Notepad", Kind = ItemKind.Application, Target = "notepad.exe" };
             var engine = new SearchEngine();
             engine.SetApplications(new[]
             {
@@ -33,7 +33,7 @@ internal static class SelfTests
             {
                 IReadOnlyList<CatalogItem> completeList = engine.Search("");
                 if (!completeList.Any(item => item.Name == "Google Chrome") ||
-                    !completeList.Any(item => item.Name == "Bloc de notas") ||
+                    !completeList.Any(item => item.Name == "Notepad") ||
                     completeList.Count != 2 + SettingsCatalog.Create().Count)
                     throw new Exception("The unfiltered list is incomplete");
                 int lastApplication = completeList.Select((item, index) => (item, index))
@@ -62,6 +62,7 @@ internal static class SelfTests
 
             AssertWindowsKeyBehavior();
             AssertWindowPositioning();
+            AssertStandaloneIconExtraction();
             if (!UsageService.VerifyPersistenceRoundTrip()) throw new Exception("Usage persistence round-trip failed");
 
             IReadOnlyList<CatalogItem> discovered = AppDiscovery.DiscoverAsync().GetAwaiter().GetResult();
@@ -74,6 +75,13 @@ internal static class SelfTests
             if (overlaySources.Length > 0)
                 throw new Exception("Shortcut overlay icon source was retained: " +
                     string.Join(", ", overlaySources.Take(5).Select(item => $"{item.Name}={item.IconSource}")));
+            CatalogItem? brokenStandaloneIcon = discovered.FirstOrDefault(item =>
+                item.IconSource.EndsWith(".ico", StringComparison.OrdinalIgnoreCase) &&
+                File.Exists(item.IconSource) &&
+                IconService.ExtractFileIcon(item.IconSource, item.IconIndex) is null);
+            if (brokenStandaloneIcon is not null)
+                throw new Exception($"Standalone shortcut icon could not be extracted: " +
+                    $"{brokenStandaloneIcon.Name}={brokenStandaloneIcon.IconSource}");
             IconService.PrewarmAsync(discovered.Take(25)).GetAwaiter().GetResult();
             CatalogItem? unfrozenIcon = discovered.Take(25).FirstOrDefault(item => item.Icon is { IsFrozen: false });
             if (unfrozenIcon is not null)
@@ -107,6 +115,24 @@ internal static class SelfTests
     {
         if (!MathEvaluator.TryEvaluate(expression, out double actual) || Math.Abs(actual - expected) > 1e-10)
             throw new Exception($"Math failed for {expression}: {actual}");
+    }
+
+    private static void AssertStandaloneIconExtraction()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"Comienzo-self-test-{Guid.NewGuid():N}.ico");
+        try
+        {
+            using (FileStream stream = File.Create(path))
+                System.Drawing.SystemIcons.Application.Save(stream);
+            System.Windows.Media.ImageSource? icon = IconService.ExtractFileIcon(path, 0);
+            if (icon is null) throw new Exception("Standalone .ico extraction at index 0 failed");
+            if (!icon.IsFrozen) throw new Exception("Standalone .ico extraction was not cross-thread safe");
+        }
+        finally
+        {
+            try { File.Delete(path); }
+            catch { }
+        }
     }
 
     private static void AssertWindowsKeyBehavior()
@@ -214,10 +240,20 @@ internal static class SelfTests
 
     private static void AssertWindowPositioning()
     {
+        StartButtonBounds startButton = new(0, 1040, 48, 1080);
+        if (!StartButtonLocator.ShouldInterceptClick([startButton], 24, 1060, "Shell_TrayWnd"))
+            throw new Exception("A visible primary Start button was not recognized");
+        if (!StartButtonLocator.ShouldInterceptClick([startButton], 24, 1060, "Shell_SecondaryTrayWnd"))
+            throw new Exception("A visible secondary Start button was not recognized");
+        if (StartButtonLocator.ShouldInterceptClick([startButton], 24, 1060, "GameWindowClass"))
+            throw new Exception("A fullscreen application covering Start was intercepted");
+        if (StartButtonLocator.ShouldInterceptClick([startButton], 100, 1060, "Shell_TrayWnd"))
+            throw new Exception("A taskbar click outside Start was intercepted");
+
         var full = new System.Drawing.Rectangle(0, 0, 1920, 1080);
         var work = new System.Drawing.Rectangle(0, 0, 1920, 1040);
         WindowPlacement left = WindowPositionService.Calculate(
-            new StartButtonBounds(0, 1040, 48, 1080), full, work, 560, 720);
+            startButton, full, work, 560, 720);
         if (left.X != 8 || left.Y != 312) throw new Exception($"Left Start placement failed: {left}");
 
         WindowPlacement centered = WindowPositionService.Calculate(
