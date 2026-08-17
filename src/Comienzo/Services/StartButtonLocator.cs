@@ -15,7 +15,29 @@ internal sealed class StartButtonLocator : IDisposable
         _timer = new System.Threading.Timer(_ => Refresh(), null, 0, 2500);
     }
 
-    public bool Contains(int x, int y) => _rectangles.Any(rect => rect.Contains(x, y));
+    public bool ContainsVisibleButton(int x, int y)
+    {
+        StartButtonBounds[] snapshot = _rectangles;
+        if (!snapshot.Any(rect => rect.Contains(x, y))) return false;
+
+        IntPtr window = WindowFromPoint(new NativePoint { X = x, Y = y });
+        if (window == IntPtr.Zero) return false;
+        IntPtr root = GetAncestor(window, GaRoot);
+        if (root == IntPtr.Zero) root = window;
+        if (!IsWindowVisible(root)) return false;
+
+        var className = new StringBuilder(64);
+        return GetClassName(root, className, className.Capacity) > 0 &&
+               ShouldInterceptClick(snapshot, x, y, className.ToString());
+    }
+
+    internal static bool ShouldInterceptClick(IReadOnlyList<StartButtonBounds> rectangles,
+        int x, int y, string topLevelWindowClass) =>
+        rectangles.Any(rect => rect.Contains(x, y)) && IsTaskbarWindowClass(topLevelWindowClass);
+
+    private static bool IsTaskbarWindowClass(string className) =>
+        className is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd";
+
     public bool HasAny => _rectangles.Length > 0;
 
     public StartButtonBounds? FindNearest(int x, int y)
@@ -42,7 +64,7 @@ internal sealed class StartButtonLocator : IDisposable
                     AddRectangles(root.FindAll(TreeScope.Descendants, byClass), rectangles);
                 }
             }
-            if (rectangles.Count > 0) _rectangles = rectangles.ToArray();
+            _rectangles = rectangles.ToArray();
         }
         catch
         {
@@ -70,6 +92,11 @@ internal sealed class StartButtonLocator : IDisposable
 
     public void Dispose() => _timer.Dispose();
 
+    private const uint GaRoot = 2;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint { public int X; public int Y; }
+
     private static IReadOnlyList<IntPtr> FindTaskbars()
     {
         var handles = new List<IntPtr>();
@@ -77,7 +104,7 @@ internal sealed class StartButtonLocator : IDisposable
         {
             var className = new StringBuilder(64);
             GetClassName(window, className, className.Capacity);
-            if (className.ToString() is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd") handles.Add(window);
+            if (IsTaskbarWindowClass(className.ToString())) handles.Add(window);
             return true;
         }, IntPtr.Zero);
         return handles;
@@ -85,6 +112,9 @@ internal sealed class StartButtonLocator : IDisposable
 
     private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
+    [DllImport("user32.dll")] private static extern IntPtr WindowFromPoint(NativePoint point);
+    [DllImport("user32.dll")] private static extern IntPtr GetAncestor(IntPtr window, uint flags);
+    [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr window, StringBuilder className, int maximum);
 }
 

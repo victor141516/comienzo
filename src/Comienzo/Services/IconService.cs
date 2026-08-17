@@ -49,10 +49,12 @@ internal static class IconService
             ImageSource? shellItemIcon = ExtractShellItemIcon(path);
             if (shellItemIcon is not null) return shellItemIcon;
         }
-        if (iconIndex != 0 && File.Exists(path))
+        // An explicit icon location commonly uses index 0. SHGetFileInfo would return the file
+        // association icon for standalone .ico files instead of the image stored in the file.
+        if (File.Exists(path))
         {
-            ImageSource? indexedIcon = ExtractIndexedIcon(path, iconIndex);
-            if (indexedIcon is not null) return indexedIcon;
+            ImageSource? fileIcon = ExtractFileIcon(path, iconIndex);
+            if (fileIcon is not null) return fileIcon;
         }
         SHFILEINFO info = default;
         uint flags = SHGFI_ICON | SHGFI_LARGEICON;
@@ -75,7 +77,7 @@ internal static class IconService
         }
     }
 
-    private static ImageSource? ExtractIndexedIcon(string path, int iconIndex)
+    internal static ImageSource? ExtractFileIcon(string path, int iconIndex)
     {
         var largeIcons = new IntPtr[1];
         uint count = ExtractIconEx(path, iconIndex, largeIcons, null, 1);
