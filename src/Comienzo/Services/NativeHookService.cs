@@ -102,7 +102,7 @@ internal sealed class NativeHookService : IDisposable
             return CallNextHookEx(IntPtr.Zero, code, message, data);
 
         var mouse = Marshal.PtrToStructure<MsLlHookStruct>(data);
-        bool onStart = _startButton.Contains(mouse.pt.x, mouse.pt.y);
+        bool onStart = _startButton.ContainsVisibleButton(mouse.pt.x, mouse.pt.y);
         bool shift = IsKeyDown(VkShift);
         if (message == (IntPtr)WmLButtonDown)
         {
