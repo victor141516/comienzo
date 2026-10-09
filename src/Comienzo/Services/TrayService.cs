@@ -11,7 +11,9 @@ internal sealed class TrayService : IDisposable
         var startup = new System.Windows.Forms.ToolStripMenuItem("Start with Windows")
         {
             CheckOnClick = true,
-            Checked = StartupService.IsEnabled()
+            Checked = StartupService.IsEnabled(),
+            Enabled = !StartupService.IsManaged,
+            ToolTipText = StartupService.IsManaged ? "Startup is managed by WinKit." : ""
         };
         startup.CheckedChanged += (_, _) =>
         {

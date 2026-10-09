@@ -6,9 +6,11 @@ internal static class StartupService
 {
     private const string KeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string ValueName = "Comienzo";
+    public static bool IsManaged => Environment.GetEnvironmentVariable("WINKIT_MANAGED") == "1";
 
     public static bool IsEnabled()
     {
+        if (IsManaged) return false;
         try
         {
             using RegistryKey? key = Registry.CurrentUser.OpenSubKey(KeyPath);
@@ -19,6 +21,7 @@ internal static class StartupService
 
     public static void SetEnabled(bool enabled)
     {
+        if (IsManaged && enabled) return;
         using RegistryKey key = Registry.CurrentUser.CreateSubKey(KeyPath, true);
         if (enabled)
         {
