@@ -56,6 +56,20 @@ because release binaries are not currently digitally signed.
 Comienzo discovers classic Start menu shortcuts, Win32 applications, Microsoft Store/MSIX apps,
 App Paths, `.lnk`, `.url`, `.appref-ms`, and registered launcher protocols such as `steam://`.
 
+## WinKit integration
+
+`Comienzo.exe --background` starts the prepared Start menu and tray icon without
+opening the menu. Its named mutex prevents duplicate instances. WinKit sets
+`WINKIT_MANAGED=1` to own startup; the independent startup menu item is disabled
+in that mode. Release packages include `winkit.json` with portable assets and
+SHA-256 checksums for automatic manager downloads.
+
+Generate the portable release packages with:
+
+```powershell
+./scripts/publish-portable.ps1 -AppName Comienzo -ProjectPath src/Comienzo/Comienzo.csproj -Version v0.2.7 -RuntimeIds @('win-x64','win-arm64')
+```
+
 ## Privacy and local data
 
 Comienzo has no telemetry and does not send search or usage history anywhere. The counter behind
